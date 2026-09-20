@@ -12,6 +12,9 @@ import Inventory from "./pages/Inventory";
 import Products from "./pages/Products";
 import Suppliers from "./pages/Suppliers";
 import PurchaseOrders from "./pages/PurchaseOrders";
+import Warehouses from "./pages/Warehouses";
+import StockMovements from "./pages/StockMovements";
+import Analytics from "./pages/Analytics";
 
 function App() {
   return (
@@ -47,8 +50,19 @@ function App() {
        path="/purchase-orders"
       element={<PurchaseOrders />}
       />
+      <Route
+        path="/warehouses"
+        element={<Warehouses />}
+      />
+      <Route
+        path="/movements"
+        element={<StockMovements />}
+        />
+      <Route
+        path="/analytics"
+        element={<Analytics />}
+        />
 
-      
         <Route
           path="/"
           element={

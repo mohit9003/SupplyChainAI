@@ -22,4 +22,13 @@ public interface InventoryMovementRepository
             WHERE m.type = :type
             """)
     long getTotalQuantityByType(MovementType type);
+    @Query("""
+        SELECT m
+        FROM InventoryMovement m
+        JOIN FETCH m.inventory i
+        JOIN FETCH i.product p
+        JOIN FETCH i.warehouse w
+        ORDER BY m.createdAt DESC
+        """)
+List<InventoryMovement> findAllWithDetails();
 }

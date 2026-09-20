@@ -118,4 +118,7 @@ public class InventoryMovementService {
             adjustmentTransactions
     );
 }
+public List<InventoryMovement> getAllMovements() {
+    return movementRepository.findAllWithDetails();
+}
 }

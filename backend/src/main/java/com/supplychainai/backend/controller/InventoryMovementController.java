@@ -35,4 +35,8 @@ public class InventoryMovementController {
 public InventoryMovementAnalyticsResponse getAnalytics() {
     return movementService.getAnalytics();
 }
+@GetMapping
+public List<InventoryMovement> getAllMovements() {
+    return movementService.getAllMovements();
+}
 }

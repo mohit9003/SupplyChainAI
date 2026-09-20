@@ -47,6 +47,6 @@ public class InventoryController {
     }
     @GetMapping("/low-stock")
 public List<Inventory> getLowStockItems() {
-    return inventoryService.getLowStockItems();
+    return inventoryService.getLowStockItems(); 
 }
 }
