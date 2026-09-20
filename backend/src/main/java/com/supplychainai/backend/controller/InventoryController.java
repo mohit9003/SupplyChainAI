@@ -45,4 +45,8 @@ public class InventoryController {
     public void delete(@PathVariable Long id) {
         inventoryService.delete(id);
     }
+    @GetMapping("/low-stock")
+public List<Inventory> getLowStockItems() {
+    return inventoryService.getLowStockItems();
+}
 }

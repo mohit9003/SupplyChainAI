@@ -70,4 +70,7 @@ public class InventoryService {
 
         inventoryRepository.delete(inventory);
     }
+    public List<Inventory> getLowStockItems() {
+    return inventoryRepository.findLowStockItems();
+}
 }
