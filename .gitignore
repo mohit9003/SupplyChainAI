@@ -1,0 +1,21 @@
+# Java / Maven
+backend/target/
+*.class
+
+# Environment / secrets
+.env
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+backend/src/main/resources/application.properties
