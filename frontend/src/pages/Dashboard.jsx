@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
 import StatCard from "../components/StatCard";
 import api from "../services/api";
+import AIAssistant from "../components/AIAssistant";
 
 function Dashboard() {
   const [summary, setSummary] = useState({
@@ -34,6 +35,7 @@ function Dashboard() {
     <div className="app-layout">
 
       <Sidebar />
+      <AIAssistant />
 
       <main className="main-content">
 
