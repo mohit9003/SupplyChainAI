@@ -19,3 +19,28 @@ Thumbs.db
 *.log
 
 backend/src/main/resources/application.properties
+# Python
+ai-service/venv/
+ai-service/__pycache__/
+ai-service/**/*.pyc
+
+# RAG / AI generated data
+ai-service/chroma_db/
+ai-service/documents/
+ai-service/chat_history.json
+
+# Environment / secrets
+.env
+*.env
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Java
+backend/target/
+
+# IDE
+.idea/
+.vscode/
+*.iml

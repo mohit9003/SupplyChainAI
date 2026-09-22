@@ -12,6 +12,7 @@ function Sidebar() {
     { name: "Purchase Orders", path: "/purchase-orders", icon: "📋" },
     { name: "Stock Movements", path: "/movements", icon: "↕" },
     { name: "Analytics", path: "/analytics", icon: "◔" },
+    { name: "AI Assistant", path: "/ai-assistant", icon: "✦" },
   ];
 
   const handleLogout = () => {
@@ -22,6 +23,7 @@ function Sidebar() {
 
   return (
     <aside className="sidebar">
+      {/* Brand */}
       <div className="brand">
         <div className="brand-logo">S</div>
 
@@ -31,8 +33,10 @@ function Sidebar() {
         </div>
       </div>
 
+      {/* Menu Label */}
       <div className="menu-label">MAIN MENU</div>
 
+      {/* Navigation */}
       <nav className="sidebar-nav">
         {menuItems.map((item) => (
           <NavLink
@@ -48,6 +52,7 @@ function Sidebar() {
         ))}
       </nav>
 
+      {/* Bottom */}
       <div className="sidebar-bottom">
         <button className="settings-button">
           <span>⚙</span>

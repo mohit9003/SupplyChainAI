@@ -15,6 +15,7 @@ import PurchaseOrders from "./pages/PurchaseOrders";
 import Warehouses from "./pages/Warehouses";
 import StockMovements from "./pages/StockMovements";
 import Analytics from "./pages/Analytics";
+import AIAssistantPage from "./pages/AIAssistantPage";
 
 function App() {
   return (
@@ -62,7 +63,12 @@ function App() {
         path="/analytics"
         element={<Analytics />}
         />
+      <Route
+      path="/ai-assistant"
+      element={<AIAssistantPage />}
+      />
 
+      
         <Route
           path="/"
           element={

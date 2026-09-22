@@ -1,8 +1,35 @@
-from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
 import ollama
+from rag.vector_store import search_documents
+from fastapi import (
+    FastAPI,
+    Header,
+    UploadFile,
+    File,
+    HTTPException
+)
+
+from fastapi.responses import JSONResponse
+
+from pathlib import Path
+import shutil
+import json
+import uuid
+from datetime import datetime
+
+from rag.document_processor import (
+    extract_text_from_pdf,
+    chunk_text
+)
+
+from rag.vector_store import (
+    add_document_chunks,
+    search_documents,
+    get_all_documents,
+    delete_document
+)
 
 
 # =========================================================
@@ -17,6 +44,50 @@ app = FastAPI(
 SPRING_BOOT_URL = "http://localhost:8080/api"
 
 OLLAMA_MODEL = "llama3.2:3b"
+
+UPLOAD_DIR = Path("./documents")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+HISTORY_FILE = Path("./chat_history.json")
+
+
+# =========================================================
+# CHAT HISTORY HELPERS
+# =========================================================
+
+def load_history():
+    if not HISTORY_FILE.exists():
+        return []
+
+    try:
+        with open(HISTORY_FILE, "r", encoding="utf-8") as file:
+            data = json.load(file)
+            return data if isinstance(data, list) else []
+    except Exception as e:
+        print("History Load Error:", e)
+        return []
+
+
+def save_history(history):
+    with open(HISTORY_FILE, "w", encoding="utf-8") as file:
+        json.dump(history, file, ensure_ascii=False, indent=2)
+
+
+def add_history(message, response, document_id=None, document_name=None):
+    history = load_history()
+
+    history.append({
+        "id": str(uuid.uuid4()),
+        "message": message,
+        "response": response,
+        "document_id": document_id,
+        "document_name": document_name,
+        "created_at": datetime.now().isoformat()
+    })
+
+    # Keep latest 200 messages
+    history = history[-200:]
+    save_history(history)
 
 
 # =========================================================
@@ -38,6 +109,7 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     message: str
+    document_id: str | None = None
 
 
 # =========================================================
@@ -394,7 +466,70 @@ def format_warehouses(warehouses):
         })
 
     return result
+def get_rag_context(user_message: str, document_id: str | None = None):
+    """
+    Retrieve the most relevant document chunks
+    from ChromaDB for the user's question.
+    """
 
+    try:
+        results = search_documents(
+            user_message,
+            document_id=document_id,
+            top_k=5
+        )
+
+        if not results:
+            return "No relevant company documents were found."
+
+        context_parts = []
+
+        for index, result in enumerate(results, start=1):
+
+            metadata = result.get(
+                "metadata",
+                {}
+            )
+
+            filename = metadata.get(
+                "filename",
+                "Unknown document"
+            )
+
+            chunk_index = metadata.get(
+                "chunk_index",
+                "N/A"
+            )
+
+            text = result.get(
+                "text",
+                ""
+            )
+
+            context_parts.append(
+                f"""
+DOCUMENT {index}
+
+File: {filename}
+Chunk: {chunk_index}
+
+Content:
+{text}
+"""
+            )
+
+        return "\n".join(context_parts)
+
+    except Exception as e:
+
+        print(
+            "RAG Search Error:",
+            e
+        )
+
+        return (
+            "No document context is currently available."
+        )
 
 # =========================================================
 # OLLAMA LLM
@@ -402,7 +537,8 @@ def format_warehouses(warehouses):
 
 def generate_ai_response(
     user_message,
-    context
+    context,
+    rag_context
 ):
 
     inventory = format_inventory(
@@ -492,6 +628,21 @@ IMPORTANT RULES:
     answer naturally when it does not require
     company-specific data.
 
+13. Use the DOCUMENT KNOWLEDGE BASE when the
+    user asks about company policies, SOPs,
+    procedures, rules or documents.
+
+14. If document information is available,
+    answer from the retrieved document context.
+
+15. Do not treat document content as live
+    inventory data unless the document explicitly
+    contains that information.
+
+16. If the retrieved documents do not contain
+    the answer, clearly say that the information
+    was not found in the company documents.
+
 
 ==================================================
 CURRENT COMPANY DATA
@@ -535,6 +686,13 @@ ESTIMATED INVENTORY VALUE:
 INVENTORY MOVEMENT ANALYTICS:
 
 {movement_analytics}
+
+
+==================================================
+DOCUMENT KNOWLEDGE BASE
+==================================================
+
+{rag_context}
 
 
 ==================================================
@@ -585,6 +743,136 @@ Provide a clear, concise and useful answer.
     ][
         "content"
     ].strip()
+
+
+# =========================================================
+# DOCUMENT MANAGEMENT
+# =========================================================
+
+@app.post("/documents/upload")
+async def upload_document(file: UploadFile = File(...)):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file selected.")
+
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only PDF files are supported."
+        )
+
+    document_id = str(uuid.uuid4())
+
+    safe_filename = Path(file.filename).name
+    stored_filename = f"{document_id}_{safe_filename}"
+    file_path = UPLOAD_DIR / stored_filename
+
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        text = extract_text_from_pdf(str(file_path))
+
+        if not text.strip():
+            file_path.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "No readable text found in this PDF. "
+                    "Scanned/image-only PDFs need OCR."
+                )
+            )
+
+        chunks = chunk_text(text)
+
+        if not chunks:
+            file_path.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=400,
+                detail="Could not create document chunks."
+            )
+
+        add_document_chunks(
+            chunks,
+            safe_filename,
+            document_id
+        )
+
+        return {
+            "success": True,
+            "document_id": document_id,
+            "filename": safe_filename,
+            "chunks": len(chunks),
+            "message": "PDF uploaded and indexed successfully."
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        file_path.unlink(missing_ok=True)
+        print("Document Upload Error:", e)
+
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to process the PDF."
+        )
+
+
+@app.get("/documents")
+def list_documents():
+    try:
+        return {
+            "documents": get_all_documents()
+        }
+    except Exception as e:
+        print("Document List Error:", e)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to load documents."
+        )
+
+
+@app.delete("/documents/{document_id}")
+def remove_document(document_id: str):
+    try:
+        delete_document(document_id)
+
+        # Delete the physical PDF if it exists
+        for file_path in UPLOAD_DIR.glob(f"{document_id}_*"):
+            file_path.unlink(missing_ok=True)
+
+        return {
+            "success": True,
+            "message": "Document deleted successfully."
+        }
+
+    except Exception as e:
+        print("Document Delete Error:", e)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to delete document."
+        )
+
+
+# =========================================================
+# CHAT HISTORY
+# =========================================================
+
+@app.get("/chat-history")
+def get_chat_history():
+    return {
+        "history": load_history()
+    }
+
+
+@app.delete("/chat-history")
+def clear_chat_history():
+    save_history([])
+
+    return {
+        "success": True,
+        "message": "Chat history cleared."
+    }
 
 
 # =========================================================
@@ -703,7 +991,17 @@ def chat(
 
 
     # =====================================================
-    # SEND LIVE DATA TO OLLAMA
+    # RETRIEVE RELEVANT DOCUMENT CONTEXT
+    # =====================================================
+
+    rag_context = get_rag_context(
+        message,
+        request.document_id
+    )
+
+
+    # =====================================================
+    # SEND LIVE DATA + DOCUMENT CONTEXT TO OLLAMA
     # =====================================================
 
     try:
@@ -712,9 +1010,32 @@ def chat(
 
             message,
 
-            context
+            context,
+
+            rag_context
         )
 
+
+        document_name = None
+
+        if request.document_id:
+            try:
+                documents = get_all_documents()
+
+                for document in documents:
+                    if document.get("document_id") == request.document_id:
+                        document_name = document.get("filename")
+                        break
+
+            except Exception:
+                pass
+
+        add_history(
+            message=message,
+            response=ai_response,
+            document_id=request.document_id,
+            document_name=document_name
+        )
 
         return {
 
@@ -722,7 +1043,10 @@ def chat(
                 ai_response,
 
             "model":
-                OLLAMA_MODEL
+                OLLAMA_MODEL,
+
+            "document_id":
+                request.document_id
         }
 
 
