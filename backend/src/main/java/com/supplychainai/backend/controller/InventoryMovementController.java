@@ -6,7 +6,6 @@ import com.supplychainai.backend.service.InventoryMovementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import com.supplychainai.backend.dto.InventoryMovementAnalyticsResponse;
 
 import java.util.List;
 
@@ -31,12 +30,20 @@ public class InventoryMovementController {
 
         return movementService.getByInventory(inventoryId);
     }
+
     @GetMapping("/analytics")
-public InventoryMovementAnalyticsResponse getAnalytics() {
-    return movementService.getAnalytics();
-}
-@GetMapping
-public List<InventoryMovement> getAllMovements() {
-    return movementService.getAllMovements();
-}
+    public InventoryMovementAnalyticsResponse getAnalytics() {
+        return movementService.getAnalytics();
+    }
+
+    @GetMapping
+    public List<InventoryMovement> getAllMovements() {
+        return movementService.getAllMovements();
+    }
+
+    // Sales history for demand forecasting
+    @GetMapping("/sales-history")
+    public List<InventoryMovement> getSalesHistory() {
+        return movementService.getSalesHistory();
+    }
 }

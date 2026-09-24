@@ -161,7 +161,6 @@ function AIAssistantPage() {
       setMessages([
         {
           role: "ai",
-
           text:
             `I've processed "${data.filename}". ` +
             `It contains ${data.chunks} searchable sections. ` +
@@ -184,6 +183,52 @@ function AIAssistantPage() {
       setUploading(false);
 
       event.target.value = "";
+    }
+  };
+
+
+  // =====================================================
+  // DELETE DOCUMENT
+  // =====================================================
+
+  const handleDeleteDocument = async (event, document) => {
+    event.stopPropagation();
+
+    const confirmed = window.confirm(
+      `Delete "${document.filename}"?\\n\\nThis will remove the PDF and its RAG data.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/documents/${document.document_id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.detail || "Failed to delete document."
+        );
+      }
+
+      if (
+        selectedDocument?.document_id ===
+        document.document_id
+      ) {
+        setSelectedDocument(null);
+        setMessages([]);
+      }
+
+      await loadDocuments();
+      await loadHistory();
+    } catch (error) {
+      console.error("Delete document error:", error);
+      alert(error.message || "Failed to delete document.");
     }
   };
 
@@ -278,10 +323,10 @@ function AIAssistantPage() {
 
           {
             role: "ai",
-
             text:
               data?.response ||
-              "I couldn't generate a response."
+              "I couldn't generate a response.",
+            sources: data?.sources || []
           }
         ]
       );
@@ -335,24 +380,22 @@ function AIAssistantPage() {
           item.document_id
       );
 
-
     if (document) {
-
-      setSelectedDocument(
-        document
-      );
+      setSelectedDocument(document);
+    } else {
+      setSelectedDocument(null);
     }
 
 
     setMessages([
       {
         role: "user",
-        text: item.question
+        text: item.message
       },
 
       {
         role: "ai",
-        text: item.answer
+        text: item.response
       }
     ]);
   };
@@ -469,6 +512,29 @@ function AIAssistantPage() {
 
                 </span>
 
+                <span
+                  role="button"
+                  tabIndex={0}
+                  title="Delete document"
+                  onClick={(event) =>
+                    handleDeleteDocument(event, document)
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      handleDeleteDocument(event, document);
+                    }
+                  }}
+                  style={{
+                    marginLeft: "auto",
+                    padding: "4px 6px",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    opacity: 0.7,
+                  }}
+                >
+                  🗑
+                </span>
+
               </button>
 
             )
@@ -508,11 +574,11 @@ function AIAssistantPage() {
               >
 
                 <strong>
-                  {item.question}
+                  {item.message}
                 </strong>
 
                 <span>
-                  {item.filename}
+                  {item.document_name || "General AI Chat"}
                 </span>
 
               </button>
@@ -623,6 +689,25 @@ function AIAssistantPage() {
                       <div>
                         {msg.text}
                       </div>
+
+                      {msg.role === "ai" && msg.sources?.length > 0 && (
+                        <div className="ai-sources">
+                          <div className="ai-sources-title">Sources</div>
+
+                          {msg.sources.map((source, sourceIndex) => (
+                            <div
+                              key={`${source.filename}-${source.chunk}-${sourceIndex}`}
+                              className="ai-source-item"
+                            >
+                              <span>📄</span>
+                              <span>{source.filename}</span>
+                              <span className="ai-source-chunk">
+                                Chunk {source.chunk}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                     </div>
 

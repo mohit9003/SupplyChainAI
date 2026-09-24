@@ -73,7 +73,7 @@ def save_history(history):
         json.dump(history, file, ensure_ascii=False, indent=2)
 
 
-def add_history(message, response, document_id=None, document_name=None):
+def add_history(message, response, document_id=None, document_name=None, sources=None):
     history = load_history()
 
     history.append({
@@ -82,6 +82,7 @@ def add_history(message, response, document_id=None, document_name=None):
         "response": response,
         "document_id": document_id,
         "document_name": document_name,
+        "sources": sources or [],
         "created_at": datetime.now().isoformat()
     })
 
@@ -483,6 +484,7 @@ def get_rag_context(user_message: str, document_id: str | None = None):
             return "No relevant company documents were found."
 
         context_parts = []
+        sources = []
 
         for index, result in enumerate(results, start=1):
 
@@ -506,6 +508,11 @@ def get_rag_context(user_message: str, document_id: str | None = None):
                 ""
             )
 
+            sources.append({
+                "filename": filename,
+                "chunk": chunk_index
+            })
+
             context_parts.append(
                 f"""
 DOCUMENT {index}
@@ -518,7 +525,7 @@ Content:
 """
             )
 
-        return "\n".join(context_parts)
+        return "\n".join(context_parts), sources
 
     except Exception as e:
 
@@ -528,7 +535,8 @@ Content:
         )
 
         return (
-            "No document context is currently available."
+            "No document context is currently available.",
+            []
         )
 
 # =========================================================
@@ -810,11 +818,17 @@ async def upload_document(file: UploadFile = File(...)):
 
     except Exception as e:
         file_path.unlink(missing_ok=True)
-        print("Document Upload Error:", e)
+
+        print("\n==============================")
+        print("DOCUMENT UPLOAD ERROR")
+        print("==============================")
+        print(type(e).__name__)
+        print(str(e))
+        print("==============================\n")
 
         raise HTTPException(
             status_code=500,
-            detail="Failed to process the PDF."
+            detail=f"PDF processing failed: {type(e).__name__}: {str(e)}"
         )
 
 
@@ -994,7 +1008,7 @@ def chat(
     # RETRIEVE RELEVANT DOCUMENT CONTEXT
     # =====================================================
 
-    rag_context = get_rag_context(
+    rag_context, sources = get_rag_context(
         message,
         request.document_id
     )
@@ -1034,7 +1048,8 @@ def chat(
             message=message,
             response=ai_response,
             document_id=request.document_id,
-            document_name=document_name
+            document_name=document_name,
+            sources=sources
         )
 
         return {
@@ -1046,7 +1061,13 @@ def chat(
                 OLLAMA_MODEL,
 
             "document_id":
-                request.document_id
+                request.document_id,
+
+            "document_name":
+                document_name,
+
+            "sources":
+                sources
         }
 
 

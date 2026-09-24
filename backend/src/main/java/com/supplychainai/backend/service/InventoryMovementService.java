@@ -1,11 +1,11 @@
 package com.supplychainai.backend.service;
 
+import com.supplychainai.backend.dto.InventoryMovementAnalyticsResponse;
 import com.supplychainai.backend.entity.*;
 import com.supplychainai.backend.repository.InventoryMovementRepository;
 import com.supplychainai.backend.repository.InventoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import com.supplychainai.backend.dto.InventoryMovementAnalyticsResponse;
 
 import java.util.List;
 
@@ -65,60 +65,69 @@ public class InventoryMovementService {
         return movementRepository
                 .findByInventoryIdOrderByCreatedAtDesc(inventoryId);
     }
+
     public InventoryMovementAnalyticsResponse getAnalytics() {
 
-    long totalPurchaseQuantity =
-            movementRepository.getTotalQuantityByType(
-                    MovementType.PURCHASE
-            );
+        long totalPurchaseQuantity =
+                movementRepository.getTotalQuantityByType(
+                        MovementType.PURCHASE
+                );
 
-    long totalSaleQuantity =
-            movementRepository.getTotalQuantityByType(
-                    MovementType.SALE
-            );
+        long totalSaleQuantity =
+                movementRepository.getTotalQuantityByType(
+                        MovementType.SALE
+                );
 
-    long totalReturnQuantity =
-            movementRepository.getTotalQuantityByType(
-                    MovementType.RETURN
-            );
+        long totalReturnQuantity =
+                movementRepository.getTotalQuantityByType(
+                        MovementType.RETURN
+                );
 
-    long totalAdjustmentQuantity =
-            movementRepository.getTotalQuantityByType(
-                    MovementType.ADJUSTMENT
-            );
+        long totalAdjustmentQuantity =
+                movementRepository.getTotalQuantityByType(
+                        MovementType.ADJUSTMENT
+                );
 
-    long purchaseTransactions =
-            movementRepository.countByType(
-                    MovementType.PURCHASE
-            );
+        long purchaseTransactions =
+                movementRepository.countByType(
+                        MovementType.PURCHASE
+                );
 
-    long saleTransactions =
-            movementRepository.countByType(
-                    MovementType.SALE
-            );
+        long saleTransactions =
+                movementRepository.countByType(
+                        MovementType.SALE
+                );
 
-    long returnTransactions =
-            movementRepository.countByType(
-                    MovementType.RETURN
-            );
+        long returnTransactions =
+                movementRepository.countByType(
+                        MovementType.RETURN
+                );
 
-    long adjustmentTransactions =
-            movementRepository.countByType(
-                    MovementType.ADJUSTMENT
-            );
+        long adjustmentTransactions =
+                movementRepository.countByType(
+                        MovementType.ADJUSTMENT
+                );
 
-    return new InventoryMovementAnalyticsResponse(
-            totalPurchaseQuantity,
-            totalSaleQuantity,
-            totalReturnQuantity,
-            totalAdjustmentQuantity,
-            purchaseTransactions,
-            saleTransactions,
-            returnTransactions,
-            adjustmentTransactions
-    );
-}
-public List<InventoryMovement> getAllMovements() {
-    return movementRepository.findAllWithDetails();
-}
+        return new InventoryMovementAnalyticsResponse(
+                totalPurchaseQuantity,
+                totalSaleQuantity,
+                totalReturnQuantity,
+                totalAdjustmentQuantity,
+                purchaseTransactions,
+                saleTransactions,
+                returnTransactions,
+                adjustmentTransactions
+        );
+    }
+
+    public List<InventoryMovement> getAllMovements() {
+        return movementRepository.findAllWithDetails();
+    }
+
+    // Sales history for demand forecasting
+    public List<InventoryMovement> getSalesHistory() {
+        return movementRepository.findByMovementTypeWithDetails(
+                MovementType.SALE
+        );
+    }
 }
